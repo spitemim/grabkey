@@ -11,15 +11,23 @@ names should conform to the following syntax:
 
 * A valid X key name (ex: 'a', 'F1', 'Return')
 
-grabkey will print the name of the key that was pressed to stdout. It will not print the
-modifiers the key was pressed with. The `-x` argument will stop the program
-when any grabbed key is pressed.
+grabkey will print the name of the key that was pressed to stdout. It will not
+print the modifiers the key was pressed with.
 
-Example: 
+The `-x` argument will immediately stop the program when any grabbed key is
+pressed.
+
+The `-p` argument will cause the program to only print the key name when
+grabbed keys are pressed.
+
+Examples: 
 
 ```
 $ grabkey Control+Shift+w
 Key 'w' pressed
+
+$ grabkey -p Control+Shift+w
+w
 ```
 
 ## Installation

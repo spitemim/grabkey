@@ -8,14 +8,14 @@
 
 typedef enum { false, true } bool;
 
-Display *dpy;
-
 void
 usage(char *argv0)
 {
     printf("usage: %s [-x] [-h] keybind_names...\n"
            "    -x: stop program silently when any of the\n"
            "        specified keybinds are pressed.\n"
+           "    -p: when keys are pressed, only print key\n"
+           "        name to stdout.\n"
            "    -h: display this message.\n\n"
            "Keybind names should consist of 'Control', 'Alt',\n"
            "'Shift', or 'Win', separated with +, followed by a\n"
@@ -30,7 +30,7 @@ usage(char *argv0)
  * Examples: Control+Shift+w, Alt+e, F12
  */
 bool
-grab_key(char *keystr)
+grab_key(char *keystr, Display *d)
 {
     unsigned int modmask = 0;
     KeySym keysym;
@@ -51,46 +51,30 @@ grab_key(char *keystr)
     if (!(keysym = XStringToKeysym(keystr)))
         return false;
 
-    return XGrabKey(dpy, XKeysymToKeycode(dpy, keysym), modmask,
-            DefaultRootWindow(dpy), 1, GrabModeAsync, GrabModeAsync);
-}
-
-/* Waits for keypress events.
- * If keypress_break is true, it immediately exits upon any keypress.
- * Otherwise, it prints the key name and continues waiting
- */
-void
-handle_keypresses(bool keypress_break)
-{
-    XEvent e;
-    char *keyname;
-
-    for (;;) {
-        XNextEvent(dpy, &e);
-
-        if (e.type == KeyPress) {
-            if (keypress_break)
-                break;
-
-            keyname = XKeysymToString(XLookupKeysym((XKeyEvent*) &e, 0));
-            printf("Key '%s' pressed\n", keyname);
-        }
-    }
+    return XGrabKey(d, XKeysymToKeycode(d, keysym), modmask,
+            DefaultRootWindow(d), 1, GrabModeAsync, GrabModeAsync);
 }
 
 int
 main(int argc, char **argv)
 {
+    Display *dpy;
     bool keypress_break = false;
+    bool keyname_only = false;
+    XEvent e;
+    char *keyname;
     int opt;
 
     assert(dpy = XOpenDisplay(0));
     XSelectInput(dpy, DefaultRootWindow(dpy), KeyPressMask);
 
-    while ((opt = getopt(argc, argv, "xh")) != -1) {
+    while ((opt = getopt(argc, argv, "xph")) != -1) {
         switch (opt) {
             case 'x':
-                break_on_keypress = true;
+                keypress_break = true;
+                break;
+            case 'p':
+                keyname_only = true;
                 break;
             case 'h':
             default:
@@ -103,7 +87,7 @@ main(int argc, char **argv)
     /* Treat leftover arguments as key strings */
     if (optind < argc) {
         do {
-            if (!grab_key(argv[optind])) {
+            if (!grab_key(argv[optind], dpy)) {
                 fprintf(stderr, "Could not grab key '%s'\n", argv[optind]);
                 return 1;
             }
@@ -113,7 +97,19 @@ main(int argc, char **argv)
         return 0;
     }
 
-    handle_keypresses(keypress_break);
+    /* Handle keypresses */
+    for (;;) {
+        XNextEvent(dpy, &e);
+
+        if (e.type == KeyPress) {
+            if (keypress_break)
+                break;
+
+            keyname = XKeysymToString(XLookupKeysym((XKeyEvent*) &e, 0));
+            printf((keyname_only) ? "%s\n" : "Key '%s' pressed\n", keyname);
+        }
+    }
+
 
     XCloseDisplay(dpy);
     return 0;
